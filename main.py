@@ -3,41 +3,64 @@ import feedparser
 from bs4 import BeautifulSoup
 import os
 
-# 1. 抓取逻辑
+# 1. 抓取逻辑 (保持不变)
 def get_ai_news():
     news_list = []
-    
-    # --- arXiv (论文) ---
-    print("正在抓取 arXiv...")
+    # arXiv
     arxiv_feed = feedparser.parse("https://rss.arxiv.org/rss/cs.AI")
-    for entry in arxiv_feed.entries[:3]:
-        news_list.append(f"【论文】{entry.title}\n链接：{entry.link}")
-
-    # --- Hacker News (聚合) ---
-    print("正在抓取 Hacker News...")
+    for entry in arxiv_feed.entries[:5]:
+        news_list.append(f"标题: {entry.title}\n摘要: {entry.summary}")
+    
+    # Hacker News
     hn_res = requests.get("https://hn.algolia.com/api/v1/search?query=AI&tags=story").json()
-    for item in hn_res['hits'][:3]:
-        news_list.append(f"【热议】{item['title']}\n链接：{item['url']}")
+    for item in hn_res['hits'][:5]:
+        news_list.append(f"标题: {item['title']}\n链接: {item['url']}")
+        
+    return "\n---\n".join(news_list)
 
-    # --- GitHub Trending (代码) ---
-    print("正在抓取 GitHub...")
-    gh_res = requests.get("https://github.com/trending/python?since=daily")
-    soup = BeautifulSoup(gh_res.text, 'html.parser')
-    for item in soup.select('article.Box-row h2 a')[:3]:
-        news_list.append(f"【项目】{item.get_text(strip=True)}\n链接：https://github.com{item.get('href')}")
+# 2. 新增：让大模型帮你总结
+def summarize_with_ai(raw_content):
+    api_key = os.getenv("LLM_API_KEY")
+    if not api_key:
+        return raw_content # 如果没配置Key，就返回原样内容
 
-    return "\n\n".join(news_list)
+    print("正在请求大模型进行总结...")
+    
+    # 这里以 DeepSeek 为例，如果你用其他模型，修改 url 即可
+    url = "https://api.deepseek.com/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    # 这是你给大模型的指令 (Prompt)
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "你是一个AI领域的资深专家。请将我提供的一堆杂乱的新闻和论文信息进行整理。"},
+            {"role": "user", "content": f"请帮我把以下内容总结成一份简洁的日报，要求：1.用中文；2.分门别类；3.每条只保留核心要点。内容如下：\n\n{raw_content}"}
+        ]
+    }
 
-# 2. 推送逻辑 (使用 Server酱)
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except Exception as e:
+        print(f"总结出错: {e}")
+        return raw_content
+
+# 3. 推送逻辑 (保持不变)
 def send_wechat(content):
-    key = os.getenv("PUSH_KEY") # 稍后我们会去设置这个“保险箱”
-    if not key:
-        print("未检测到 PUSH_KEY，取消推送")
-        return
+    key = os.getenv("PUSH_KEY")
+    if not key: return
     url = f"https://sctapi.ftqq.com/{key}.send"
-    requests.post(url, data={"title": "今日 AI 资讯汇总", "desp": content})
-    print("推送成功！")
+    requests.post(url, data={"title": "🤖 智能 AI 每日简报", "desp": content})
 
 if __name__ == "__main__":
-    content = get_ai_news()
-    send_wechat(content)
+    # 第一步：抓取
+    raw_data = get_ai_news()
+    # 第二步：总结 (新增)
+    summary = summarize_with_ai(raw_data)
+    # 第三步：推送
+    send_wechat(summary)
