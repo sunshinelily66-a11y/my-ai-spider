@@ -1,0 +1,21 @@
+name: Daily AI Job
+on:
+  schedule:
+    - cron: '0 1 * * *' # 每天北京时间早上 9:00 自动运行
+  workflow_dispatch:   # 允许手动运行（方便我们测试）
+
+jobs:
+  run-spider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 feedparser
+      - name: Run script
+        env:
+          PUSH_KEY: ${{ secrets.PUSH_KEY }}
+        run: python main.py
