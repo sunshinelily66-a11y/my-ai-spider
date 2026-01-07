@@ -18,4 +18,5 @@ jobs:
       - name: Run script
         env:
           PUSH_KEY: ${{ secrets.PUSH_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         run: python main.py
