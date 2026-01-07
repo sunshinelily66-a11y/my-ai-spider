@@ -7,16 +7,34 @@ import os
 def get_ai_news():
     news_list = []
     
-    # arXiv (论文通常有很长的摘要，非常适合深度分析)
+    # --- 原有的技术源 (保持或微调) ---
+    # arXiv (论文)
     arxiv_feed = feedparser.parse("https://rss.arxiv.org/rss/cs.AI")
-    for entry in arxiv_feed.entries[:5]:
-        # 把摘要也传给大模型
-        news_list.append(f"来源: arXiv\n标题: {entry.title}\n摘要: {entry.summary}")
+    for entry in arxiv_feed.entries[:3]:
+        news_list.append(f"【技术论文】来源: arXiv\n标题: {entry.title}\n摘要: {entry.summary}")
+
+    # --- 新增：商业与投融资源 ---
     
-    # Hacker News (HN通常只有标题，效果会略差)
-    hn_res = requests.get("https://hn.algolia.com/api/v1/search?query=AI&tags=story").json()
-    for item in hn_res['hits'][:5]:
-        news_list.append(f"来源: Hacker News\n标题: {item['title']}\n链接: {item['url']}")
+    # TechCrunch AI (全球融资/并购)
+    print("正在抓取 TechCrunch...")
+    tc_feed = feedparser.parse("https://techcrunch.com/category/artificial-intelligence/feed/")
+    for entry in tc_feed.entries[:3]:
+        news_list.append(f"【商业动态】来源: TechCrunch\n标题: {entry.title}\n摘要: {entry.summary}")
+
+    # VentureBeat AI (企业/投资)
+    print("正在抓取 VentureBeat...")
+    vb_feed = feedparser.parse("https://venturebeat.com/category/ai/feed/")
+    for entry in vb_feed.entries[:3]:
+        news_list.append(f"【行业大事件】来源: VentureBeat\n标题: {entry.title}\n摘要: {entry.summary}")
+
+    # Crunchbase News (纯投融资)
+    print("正在抓取 Crunchbase...")
+    cb_feed = feedparser.parse("https://news.crunchbase.com/sections/ai-robotics/feed/")
+    for entry in cb_feed.entries[:3]:
+        news_list.append(f"【投融资】来源: Crunchbase\n标题: {entry.title}\n摘要: {entry.summary}")
+
+    # 36Kr (国内行业大事件 - 建议通过 RSSHub 或直接抓取)
+    # 提示：由于36kr对爬虫有限制，小白建议先加好上面三个，国内动态可以用你之前的“机器之心”
         
     return "\n\n===\n\n".join(news_list)
     
@@ -46,15 +64,15 @@ def summarize_with_ai(raw_content):
             {
                 "role": "user", 
                 "content": (
-                    "请根据以下抓取到的信息，撰写一份深度AI日报。要求如下：\n"
-                    "1. **禁止简短的一句话总结**，每条内容必须包含：\n"
-                    "   - 【主体】涉及的公司、团队或关键人物是谁；\n"
-                    "   - 【核心动态】具体做了什么（发布了什么、突破了什么）；\n"
-                    "   - 【核心观点/技术细节】他们提出了什么新观点或技术亮点；\n"
-                    "   - 【原因与影响】为什么要这么做，对行业有什么潜在影响。\n"
-                    "2. **格式要求**：使用清晰的 Markdown 格式，分条目列出。\n"
-                    "3. **语言**：必须使用专业、易懂的中文。\n\n"
-                    f"待处理的内容如下：\n\n{raw_content}"
+                    "请根据以下抓取到的信息，撰写一份【AI产业与技术深度简报】。要求如下：\n"
+                    "1. **必须包含以下分类**：\n"
+                    "   - 💰【投融资与并购】：重点列出哪家公司融了多少钱、谁投的、或者是谁收购了谁。\n"
+                    "   - 👤【人事变动】：关注大厂高管、顶尖科学家的离职、入职或创业动态。\n"
+                    "   - 🚀【重大技术突破】：整理前沿论文和新模型发布的要点。\n"
+                    "   - 🏢【巨头/大厂动态】：OpenAI、Google、Meta 等公司的战略动作。\n"
+                    "2. **每条内容要写深写透**：不要只写标题，要说明这件事为什么重要，对行业有什么影响。\n"
+                    "3. **格式**：使用 Markdown 排版，重点公司和人名请加粗。\n\n"
+                    f"内容如下：\n\n{raw_content}"
                 )
             }
         ]
